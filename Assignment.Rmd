@@ -1,0 +1,111 @@
+---
+title: "Practical Machine Learning - Assignment"
+author: "Jantien Dopper"
+date: "23 maart 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data and the assignment
+
+Devices such as FitBit make it possible to collect large amounts of data about personal activity, and this relatively inexpensively. The measurements from these devices are often used to track how much of a particular activity is done. The data lends itself for other questions as well. 
+
+In this project we focus on how well the activity has been performed. By using data from accelerometers on the belt, forearm, arm and dumbbell we are going to build a prediction model for the way a barbell lift exercise has been performed. The exercise has been performed in 5 different ways, one correct way and four incorrrect ways. More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har> (see the section on the Weight Lifting Exercise Dataset).
+
+The training data for this project are available here:  <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+
+The test data are available here:
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+
+The aim of this project is to build a model to predict the manner in which the exercises were performed. This is the "classe" variable in the training set.
+
+## Data Cleaning
+
+After downloading the files, we read in the file using `read.csv` command and we store our training set in the dataframe `training`.
+
+```{r, echo=FALSE}
+training <- read.csv("/home/jgdopper/Documenten/Coursera/Data_Science/8_Practical_Machine_Learning/Week4/Assignment/Data/pml-training.csv", header=TRUE)
+```
+
+We take a first look at the training set and see that we have 19622 observations of 160 variables. 
+
+```{r}
+dim(training)
+```
+
+We take a closer look at the variables.
+```{r}
+names(training)
+```
+
+This reveals two things: First, the first 7 variables are not of any value for prediction. Second, the other variables include both actual measurements by the accelerometer and calculated quantities based on these measurements (for instance all variable containing "skewness_", or "stddev_" in their name). The data cleaning involves removing the first 7 variables, and keeping the actual measurements only by removing all calculated variables. This is done by the code below:
+
+```{r}
+training <- training[,8:160]
+training <- training[-grep("kurtosis_", names(training))]
+training <- training[-grep("skewness_", names(training))]
+training <- training[-grep("max_", names(training))]
+training <- training[-grep("min_", names(training))]
+training <- training[-grep("amplitude_", names(training))]
+training <- training[-grep("var_", names(training))]
+training <- training[-grep("avg_", names(training))]
+training <- training[-grep("stddev_", names(training))]
+
+```
+
+We are  now left with 53 variabels: 1 outcome and 52 predictors.
+```{r}
+dim(training)
+```
+
+We check if we have any missing values left in our training dataset
+```{r}
+colSums(is.na(training))
+```
+
+There are no missing values anymore, so our training set is ready for model building.
+
+## Model building
+The lectures mentioned that random forests and boosting generates the best predictive models. We choose to build a random forest model first.
+
+We build a random forest model by the following code, using the `classe` variable as the outcome and using the other 52 variables of our training set as predictors.
+
+```{r}
+library(caret)
+library(randomForest)
+set.seed(12345)
+modFit <- randomForest(classe ~.,  data=training)
+```
+## Cross validation
+The random forest method contains some kind of cross validation embedded in the method itself, as a bootstrap is used to generate the samples on which the trees are build. This means that additional cross validation might lead to overfitting. Therefore we decide not to perform any additional cross validation.
+
+## Expected out of sample error 
+By default, the random forest method bootstraps the samples, using a part for training and the rest for testing during classification. This means that the OOB error is a good indicator of the out of sample error.
+
+```{r}
+modFit
+```
+
+We see that the OOB error is estimate at 0.29%. This means that the algorithm performs pretty well.
+
+To get additional insight in the model, we show the dotchart of variable importance as measured by a random forest,
+
+```{r}
+varImpPlot(modFit)
+```
+
+We see that `row_belt` and `yaw_belt` are the best predictors.
+
+For further insight, we plot make a plot of the two largest predictors and the `classe` variable. The graph shows the clustering of the `classe` variable.
+
+```{r}
+qplot(roll_belt, yaw_belt, colour=classe, data=training)
+```
+
+
+## Prediction on 20 test cases
+
+We used this model on 20 test cases of the test set. The result of the Quiz showed that the random forest model had a 100% accuracy. Therefore we stay with this random forest and we do not build another model.
